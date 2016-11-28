@@ -39,6 +39,11 @@ void turn(int slope) {
   right.write(1500 + slope);
 }
 
+void slopeTurn(int slope, int speed = 200) {
+  left.write(1500 + speed + slope);
+  right.write(1500 - speed + slope);
+}
+
 void stopWheels() {
   left.write(1500);
   right.write(1500);
@@ -93,15 +98,13 @@ void loop()
   }
 
   if (lineBeneath()) {
-    goForward(50);
+    goForward(200);
   } else if (lineLeft()){
-    turn(-50);
+    turn(-70);
   } else if (lineRight()) {
-    turn(50);
+    turn(70);
   } else { // finding line
-    turn(-100);
-    delay(5);
+    slopeTurn(-30);
   }
-
-  delay(5);
+  delay(1);
 }
