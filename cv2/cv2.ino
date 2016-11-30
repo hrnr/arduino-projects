@@ -12,22 +12,6 @@ int go = 0;
 // readings from infrared sensors
 bool infras[infra_high - infra_low];
 
-void setup()
-{
-  // initialize serial and wait for port to open:
-  Serial.begin(115200);
-  left.attach(12);
-  right.attach(13);
-  // button
-  pinMode(button_pin, INPUT_PULLUP);
-  
-  stopWheels();
-  // setup infa array
-  for (int i = infra_low; i < infra_high; ++i) {
-    pinMode(i, INPUT);
-  }
-}
-
 bool buttonDown() {
   return !digitalRead(button_pin);
 }
@@ -94,6 +78,22 @@ bool lineRight() {
 /* line is properly aligned under robot */
 bool lineBeneath() {
   return !infras[2];
+}
+
+void setup()
+{
+  // initialize serial and wait for port to open:
+  Serial.begin(115200);
+  left.attach(12);
+  right.attach(13);
+  // button
+  pinMode(button_pin, INPUT_PULLUP);
+  
+  stopWheels();
+  // setup infa array
+  for (int i = infra_low; i < infra_high; ++i) {
+    pinMode(i, INPUT);
+  }
 }
 
 void loop()

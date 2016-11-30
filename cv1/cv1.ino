@@ -4,18 +4,6 @@ Servo left;
 Servo right;
 int button_pin = 2;
 
-void setup()
-{
-  // initialize serial and wait for port to open:
-  Serial.begin(115200);
-  left.attach(12);
-  right.attach(13);
-  // button
-  pinMode(button_pin, INPUT_PULLUP);
-  
-  stopWheels();
-}
-
 bool buttonDown() {
   return !digitalRead(button_pin);
 }
@@ -46,6 +34,18 @@ bool lineAhead() {
   return res;
 }
 
+void setup()
+{
+  // initialize serial and wait for port to open:
+  Serial.begin(115200);
+  left.attach(12);
+  right.attach(13);
+  // button
+  pinMode(button_pin, INPUT_PULLUP);
+  
+  stopWheels();
+}
+
 void loop()
 {
 //  Serial.println(buttonDown());
@@ -58,4 +58,3 @@ void loop()
   }
   delay(50);
 }
-
