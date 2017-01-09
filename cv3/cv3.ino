@@ -8,7 +8,7 @@
 
 Servo left;
 Servo right;
-signed char go_same_side = true;
+signed char go_same_side = 1;
 signed char mark = 0;
 // readings from infrared sensors
 bool infras[infra_high - infra_low];
@@ -162,25 +162,21 @@ void lineFollow() {
 
 void loop() {
   readInfra();
-  // Serial.println(buttonDown());
-  // debugInfra();
 
   if (buttonDown()) {
-    stopWheels();
-    delay(8000);
-    // go_same_side = false;
+    go_same_side = -1;
   }
 
   if (stopLine()) {
     stopWheels();
-    // return;
+    return;
   }
 
   // marker
   if (markLeft()) {
-    mark = -1;
+    mark = -1 * go_same_side;
   } else if (markRight()) {
-    mark = 1;
+    mark = 1 * go_same_side;
   }
 
   // junction
@@ -193,8 +189,6 @@ void loop() {
       maskDirection(mark);
       lineFollow();
     }
-    stopWheels();
-    delay(2000);
     // line between
     bool expect_crossroad = false;
     while (!crossRoad() && !expect_crossroad) {
@@ -203,8 +197,6 @@ void loop() {
       maskMarks();
       lineFollow();
     }
-    stopWheels();
-    delay(2000);
     // joining junction
     for (uint i = 0; i < crossroad_delay; ++i) {
       readInfra();
