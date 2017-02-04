@@ -73,10 +73,10 @@ Command parseCommand() {
   // save coordinates at proper order
   if (!row_first) {
     x = a1 - 'A'; // convert row coordinate to number
-    y = a2 - '0';
+    y = a2 - '1'; // we want to count cols from 0
   } else {
     x = a2 - 'A';
-    y = a1 - '0';
+    y = a1 - '1';
   }
 
   return {row_first, x, y, time};
@@ -90,7 +90,7 @@ Status parseStatus() {
 
   Status status;
   status.x = a1 - 'A';
-  status.y = a2 - '0';
+  status.y = a2 - '1';
   switch (a3) {
   case 'N':
     status.orientation = Status::NORTH;
@@ -159,7 +159,7 @@ void setup() {
 
   Serial.println("waiting for commands.");
   // wait 15 seconds to give user a chance to send new commands
-  delay(30 * 1000);
+  delay(15 * 1000);
   if (Serial.available()) {
     Serial.println("commands received, writing new commands.");
     readSchedule();
