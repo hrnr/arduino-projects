@@ -26,11 +26,13 @@ struct Command {
     Serial.print(time);
     Serial.println();
   }
+
+  bool empty() { return time == 0; }
 };
 
 struct Status {
   // robot's heading
-  enum Orientation { NORTH, SOUTH, WEST, EAST };
+  enum Orientation { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 };
 
   unsigned char x;
   unsigned char y;
@@ -44,6 +46,7 @@ Servo right;
 // readings from infrared sensors
 bool infras[infra_high - infra_low];
 Status status;
+Status starting_position;
 Command schedule[128];
 
 /* stops robot */
@@ -143,6 +146,116 @@ void loadSchedule() {
   EEPROM.get(address, schedule);
 }
 
+void rotateRight() { Serial.println("R"); }
+
+void rotateLeft() { Serial.println("L"); }
+
+void goForward() { Serial.println("F"); }
+
+void rotate(Status::Orientation orientation) {
+  int diff = status.orientation - orientation;
+  int dist = abs(diff) % 2;
+  if (diff == 0) {
+    // we are already rotated in desired direction
+    return;
+  }
+  if (dist == 0) {
+    // rotate 180 deg
+    // we must take care on the corners, so we always have line after first
+    // rotation.
+    if ((status.x > 0 && status.y == 0) || (status.y > 0 && status.x == 0)) {
+      rotateLeft();
+      rotateLeft();
+    } else {
+      rotateRight();
+      rotateRight();
+    }
+  } else {
+    // rotate 90 deg
+    if (diff == 1 || diff == -3) {
+      rotateLeft();
+    } else {
+      rotateRight();
+    }
+  }
+  status.orientation = orientation;
+}
+
+void goNorth() {
+  rotate(Status::NORTH);
+  goForward();
+  ++status.y;
+}
+
+void goSouth() {
+  rotate(Status::SOUTH);
+  goForward();
+  --status.y;
+}
+
+void goEast() {
+  rotate(Status::EAST);
+  goForward();
+  ++status.x;
+}
+
+void goWest() {
+  rotate(Status::WEST);
+  goForward();
+  --status.x;
+}
+
+/* clear column distance between current position and goal by moving robot by
+ * the row */
+void goRow(const Command &goal) {
+  int diff = goal.x - status.x;
+  for (int i = 0; i < abs(diff); ++i) {
+    if (diff > 0) {
+      goEast();
+    } else {
+      goWest();
+    }
+  }
+}
+
+/* clear row distance between current position and goal by moving robot by the
+ * column */
+void goCol(const Command &goal) {
+  int diff = goal.y - status.y;
+  for (int i = 0; i < abs(diff); ++i) {
+    if (diff > 0) {
+      goNorth();
+    } else {
+      goSouth();
+    }
+  }
+}
+
+/* commands robot to follow path according to schedule */
+void executeSchedule() {
+  starting_position = status; // save for later return
+  for (Command *cmd = schedule; !cmd->empty(); ++cmd) {
+    cmd->print();
+    if (!cmd->row_first) {
+      goRow(*cmd);
+      goCol(*cmd);
+    } else {
+      goCol(*cmd);
+      goRow(*cmd);
+    }
+  }
+}
+
+/* commands robot to get back to starting position */
+void returnHome() {
+  Serial.println("returning back to starting position.");
+  // create command for starting pos
+  Command cmd = {false, starting_position.x, starting_position.y, 0};
+  goRow(cmd);
+  goCol(cmd);
+  rotate(starting_position.orientation);
+}
+
 void setup() {
   // initialize serial and wait for port to open:
   Serial.begin(115200);
@@ -174,6 +287,9 @@ void setup() {
   }
 
   Serial.println("commands loaded, launching robot.");
+
+  executeSchedule();
+  returnHome();
 }
 
 void loop() { return; }
