@@ -6,6 +6,7 @@
 #define button_pin 2
 #define infra_low 3
 #define infra_high 8
+#define led_pin 11
 
 #define LENGTH(x) (sizeof x / sizeof x[0])
 
@@ -62,11 +63,8 @@ Command schedule[128];
 // predefined schedule used as fallback
 Status default_status = {0, 0, Status::NORTH};
 Command default_schedule[] = {
-{0, 4, 0, 150},
-{0, 1, 1, 350},
-{1, 0, 2, 450},
-{1, 2, 3, 567},
-{0, 3, 1, 700},
+    {0, 4, 0, 150}, {0, 1, 1, 350}, {1, 0, 2, 450},
+    {1, 2, 3, 567}, {0, 3, 1, 700},
 };
 
 /* stops robot */
@@ -80,6 +78,14 @@ void readInfra() {
   for (int i = infra_low, j = 0; i < infra_high; ++i, ++j) {
     infras[j] = digitalRead(i);
   }
+}
+
+/* blinks a led on top of robot */
+void blinkLed() {
+  digitalWrite(led_pin, HIGH);
+  delay(250);
+  digitalWrite(led_pin, LOW);
+  delay(250);
 }
 
 bool buttonDown() { return !digitalRead(button_pin); }
@@ -213,7 +219,8 @@ void loadSchedule() {
     status = default_status;
     memset(schedule, 0, sizeof(schedule));
     memcpy(schedule, default_schedule, sizeof(default_schedule));
-    Serial.println("no schedule present in EEPROM, falling back to precompiler schedule.");
+    Serial.println(
+        "no schedule present in EEPROM, falling back to precompiler schedule.");
     return;
   }
   int address = 1;
@@ -310,6 +317,7 @@ void goCol(const Command &goal) {
 /* commands robot to follow path according to schedule */
 void executeSchedule() {
   starting_position = status; // save for later return
+  unsigned long start_time = millis();
   for (Command *cmd = schedule; !cmd->empty(); ++cmd) {
     cmd->print();
     if (!cmd->row_first) {
@@ -318,6 +326,10 @@ void executeSchedule() {
     } else {
       goCol(*cmd);
       goRow(*cmd);
+    }
+    // wait until next command for amount specified in command
+    while (cmd->time * 100 > millis() - start_time) {
+      blinkLed();
     }
   }
 }
@@ -339,6 +351,9 @@ void setup() {
   right.attach(13);
   // button
   pinMode(button_pin, INPUT_PULLUP);
+
+  // led
+  pinMode(led_pin, OUTPUT);
 
   stopWheels();
   // setup infa array
@@ -368,6 +383,10 @@ void setup() {
   }
 
   Serial.println("commands loaded, launching robot.");
+
+  // blink 2 times to signal that we are ready
+  blinkLed();
+  blinkLed();
 }
 
 void loop() {
