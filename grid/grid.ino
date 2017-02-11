@@ -9,6 +9,9 @@
 
 #define LENGTH(x) (sizeof x / sizeof x[0])
 
+// magic value to mark our content in eeprom
+#define eeprom_magic 0xce
+
 struct Command {
   // where to go first
   bool row_first;
@@ -55,6 +58,16 @@ bool infras[infra_high - infra_low];
 Status status;
 Status starting_position;
 Command schedule[128];
+
+// predefined schedule used as fallback
+Status default_status = {0, 0, Status::NORTH};
+Command default_schedule[] = {
+{0, 4, 0, 150},
+{0, 1, 1, 350},
+{1, 0, 2, 450},
+{1, 2, 3, 567},
+{0, 3, 1, 700},
+};
 
 /* stops robot */
 void stopWheels() {
@@ -187,13 +200,23 @@ bool readSchedule() {
 
 void saveSchedule() {
   int address = 0;
+  // magic to know if we have valid schedule in eeprom
+  EEPROM[address++] = eeprom_magic;
   EEPROM.put(address, status);
   address += sizeof(status);
   EEPROM.put(address, schedule);
 }
 
 void loadSchedule() {
-  int address = 0;
+  if (EEPROM[0] != eeprom_magic) {
+    // we don't have our schedule in EEPROM, fall back to precompiled schedule
+    status = default_status;
+    memset(schedule, 0, sizeof(schedule));
+    memcpy(schedule, default_schedule, sizeof(default_schedule));
+    Serial.println("no schedule present in EEPROM, falling back to precompiler schedule.");
+    return;
+  }
+  int address = 1;
   EEPROM.get(address, status);
   address += sizeof(status);
   EEPROM.get(address, schedule);
