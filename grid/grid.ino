@@ -37,7 +37,6 @@ struct Status {
   unsigned char x;
   unsigned char y;
   Orientation orientation;
-  unsigned int command_counter;
 };
 
 /* globals */
@@ -60,6 +59,16 @@ void readInfra() {
   for (int i = infra_low, j = 0; i < infra_high; ++i, ++j) {
     infras[j] = digitalRead(i);
   }
+}
+
+bool buttonDown() { return !digitalRead(button_pin); }
+
+/* waits until the button is pressed */
+void waitButtonPress() {
+  while (!buttonDown()) {
+  }
+  // wait a bit to allow user put his finger up
+  delay(1000);
 }
 
 /* read 1 command from serial line */
@@ -109,7 +118,6 @@ Status parseStatus() {
     break;
   }
 
-  status.command_counter = 0;
   return status;
 }
 
@@ -287,9 +295,12 @@ void setup() {
   }
 
   Serial.println("commands loaded, launching robot.");
-
-  executeSchedule();
-  returnHome();
 }
 
-void loop() { return; }
+void loop() {
+  waitButtonPress();
+  executeSchedule();
+
+  waitButtonPress();
+  returnHome();
+}
