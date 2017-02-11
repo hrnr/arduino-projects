@@ -80,6 +80,33 @@ void readInfra() {
   }
 }
 
+/* going forward, defaults to full speed */
+void go(int speed = 200) {
+  left.write(1500 + speed);
+  right.write(1500 - speed);
+}
+
+/* inplace turning */
+void turn(int slope) {
+  left.write(1500 + slope);
+  right.write(1500 + slope);
+}
+
+/* reading from infra red sensors */
+void debugInfra() {
+  for (int i = 0; i < sizeof(infras); ++i) {
+    Serial.print(infras[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+}
+
+/* line is properly aligned under robot */
+bool lineBeneath() { return !infras[2] && infras[1] && infras[3]; }
+
+/* line (crossroad) is in front of the robot */
+bool lineInFront() { return !infras[0] || !infras[4]; }
+
 /* blinks a led on top of robot */
 void blinkLed() {
   digitalWrite(led_pin, HIGH);
@@ -229,11 +256,35 @@ void loadSchedule() {
   EEPROM.get(address, schedule);
 }
 
-void rotateRight() { Serial.println("R"); }
+/* robot robot left (direction = -1)  or right (direction = 1) 90 deg */
+void rotateRobot(signed char direction) {
+  turn(100 * direction);
+  delay(400);
+  do {
+    readInfra();
+  } while (!lineBeneath());
+  stopWheels();
+}
 
-void rotateLeft() { Serial.println("L"); }
+void rotateRight() {
+  Serial.println("R");
+  rotateRobot(1);
+}
 
-void goForward() { Serial.println("F"); }
+void rotateLeft() {
+  Serial.println("L");
+  rotateRobot(-1);
+}
+
+void goForward() {
+  Serial.println("F");
+  go(100);
+  do {
+    readInfra();
+  } while (!lineInFront());
+  delay(260);
+  stopWheels();
+}
 
 void rotate(Status::Orientation orientation) {
   int diff = status.orientation - orientation;
