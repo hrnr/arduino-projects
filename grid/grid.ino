@@ -51,6 +51,10 @@ struct Status {
   static Status createEmpty() { return {255, 255, Orientation(5)}; }
 };
 
+/* robot setup */
+const static int basic_turn_ratio = 70;
+const static int forward_speed = 100;
+
 /* globals */
 Servo left;
 Servo right;
@@ -94,12 +98,18 @@ void turn(int slope) {
 
 /* reading from infra red sensors */
 void debugInfra() {
-  for (int i = 0; i < sizeof(infras); ++i) {
+  for (unsigned int i = 0; i < sizeof(infras); ++i) {
     Serial.print(infras[i]);
     Serial.print(' ');
   }
   Serial.println();
 }
+
+/* line left to the robt */
+bool lineLeft() { return !infras[1]; }
+
+/* line right to the robt */
+bool lineRight() { return !infras[3]; }
 
 /* line is properly aligned under robot */
 bool lineBeneath() { return !infras[2] && infras[1] && infras[3]; }
@@ -107,12 +117,33 @@ bool lineBeneath() { return !infras[2] && infras[1] && infras[3]; }
 /* line (crossroad) is in front of the robot */
 bool lineInFront() { return !infras[0] || !infras[4]; }
 
+/* turning on smoother curve */
+void slopeTurn(int slope, int speed = 200) {
+  left.write(1500 + speed + slope);
+  right.write(1500 - speed + slope);
+}
+
+void lineFollow() {
+  // correct position according to line position
+  if (lineBeneath()) {
+    go(forward_speed);
+  } else if (lineLeft()) {
+    slopeTurn(-1 * basic_turn_ratio, forward_speed);
+  } else if (lineRight()) {
+    slopeTurn(basic_turn_ratio, forward_speed);
+  } else { // finding line
+    slopeTurn(-30);
+  }
+}
+
 /* blinks a led on top of robot */
-void blinkLed() {
-  digitalWrite(led_pin, HIGH);
-  delay(250);
-  digitalWrite(led_pin, LOW);
-  delay(250);
+void blinkLed(unsigned char repeats = 1) {
+  for (unsigned char i = 0; i < repeats; ++i) {
+    digitalWrite(led_pin, HIGH);
+    delay(250);
+    digitalWrite(led_pin, LOW);
+    delay(250);
+  }
 }
 
 bool buttonDown() { return !digitalRead(button_pin); }
@@ -278,10 +309,12 @@ void rotateLeft() {
 
 void goForward() {
   Serial.println("F");
-  go(100);
+  go(forward_speed);
   do {
     readInfra();
+    lineFollow();
   } while (!lineInFront());
+  go(forward_speed);
   delay(260);
   stopWheels();
 }
@@ -436,14 +469,15 @@ void setup() {
   Serial.println("commands loaded, launching robot.");
 
   // blink 2 times to signal that we are ready
-  blinkLed();
-  blinkLed();
+  blinkLed(2);
 }
 
 void loop() {
   waitButtonPress();
   executeSchedule();
+  blinkLed(4);
 
   waitButtonPress();
   returnHome();
+  blinkLed(4);
 }
