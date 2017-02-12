@@ -71,6 +71,10 @@ Command default_schedule[] = {
     {1, 2, 3, 567}, {0, 3, 1, 700},
 };
 
+/**
+ * robot controls
+ */
+
 /* stops robot */
 void stopWheels() {
   left.write(1500);
@@ -96,25 +100,16 @@ void turn(int slope) {
   right.write(1500 + slope);
 }
 
-/* reading from infra red sensors */
-void debugInfra() {
-  for (unsigned int i = 0; i < sizeof(infras); ++i) {
-    Serial.print(infras[i]);
-    Serial.print(' ');
-  }
-  Serial.println();
-}
-
-/* line left to the robt */
+/* returns true if line is left to the robot */
 bool lineLeft() { return !infras[1]; }
 
-/* line right to the robt */
+/* returns true if line is right to the robot */
 bool lineRight() { return !infras[3]; }
 
-/* line is properly aligned under robot */
+/* returns true if line is properly aligned under robot */
 bool lineBeneath() { return !infras[2] && infras[1] && infras[3]; }
 
-/* line (crossroad) is in front of the robot */
+/* returns true if line (crossroad) is in front of the robot */
 bool lineInFront() { return !infras[0] || !infras[4]; }
 
 /* turning on smoother curve */
@@ -123,6 +118,8 @@ void slopeTurn(int slope, int speed = 200) {
   right.write(1500 - speed + slope);
 }
 
+/* commands robots either to go forward or turn in such a way that robot will
+ * follow the line in the next step */
 void lineFollow() {
   // correct position according to line position
   if (lineBeneath()) {
@@ -136,7 +133,7 @@ void lineFollow() {
   }
 }
 
-/* blinks a led on top of robot */
+/* blinks a led on top of the robot */
 void blinkLed(unsigned char repeats = 1) {
   for (unsigned char i = 0; i < repeats; ++i) {
     digitalWrite(led_pin, HIGH);
@@ -146,6 +143,7 @@ void blinkLed(unsigned char repeats = 1) {
   }
 }
 
+/* returns true if button is pressed */
 bool buttonDown() { return !digitalRead(button_pin); }
 
 /* waits until the button is pressed */
@@ -155,6 +153,10 @@ void waitButtonPress() {
   // wait a bit to allow user put his finger up
   delay(1000);
 }
+
+/**
+ * serial communication
+ */
 
 /* read 1 command from serial line. on error returns empty Command */
 Command parseCommand() {
@@ -262,6 +264,11 @@ bool readSchedule() {
   return true;
 }
 
+/**
+ * schedule persisting
+ */
+
+/* saves schedule to EEPROM */
 void saveSchedule() {
   int address = 0;
   // magic to know if we have valid schedule in eeprom
@@ -271,6 +278,8 @@ void saveSchedule() {
   EEPROM.put(address, schedule);
 }
 
+/* loads schedule either from EEPROM or from built-in failback schedule. If
+ * button is down it always loads failback schedule. */
 void loadSchedule() {
   if (EEPROM[0] != eeprom_magic || buttonDown()) {
     // we don't have our schedule in EEPROM, fall back to precompiled schedule
@@ -288,6 +297,10 @@ void loadSchedule() {
   EEPROM.get(address, schedule);
 }
 
+/**
+ * schedule execution and planning
+ */
+
 /* robot robot left (direction = -1)  or right (direction = 1) 90 deg */
 void rotateRobot(signed char direction) {
   turn(100 * direction);
@@ -298,16 +311,19 @@ void rotateRobot(signed char direction) {
   stopWheels();
 }
 
+/* rotate robot right 90 deg */
 void rotateRight() {
   Serial.println("R");
   rotateRobot(1);
 }
 
+/* rotate robot right 90 deg */
 void rotateLeft() {
   Serial.println("L");
   rotateRobot(-1);
 }
 
+/* go forward 1 cell */
 void goForward() {
   Serial.println("F");
   go(forward_speed);
@@ -320,6 +336,7 @@ void goForward() {
   stopWheels();
 }
 
+/* rotate robot. after rotation is finished robot will face desired `orientation` */
 void rotate(Status::Orientation orientation) {
   int diff = status.orientation - orientation;
   int dist = abs(diff) % 2;
@@ -349,26 +366,31 @@ void rotate(Status::Orientation orientation) {
   status.orientation = orientation;
 }
 
+/* performs special action. currently it faces robot north. */
 void doSpecialAction() { rotate(Status::NORTH); }
 
+/* commands robot to go 1 cell NORTH in coordinate system */
 void goNorth() {
   rotate(Status::NORTH);
   goForward();
   ++status.y;
 }
 
+/* commands robot to go 1 cell SOUTH in coordinate system */
 void goSouth() {
   rotate(Status::SOUTH);
   goForward();
   --status.y;
 }
 
+/* commands robot to go 1 cell EAST in coordinate system */
 void goEast() {
   rotate(Status::EAST);
   goForward();
   ++status.x;
 }
 
+/* commands robot to go 1 cell WEST in coordinate system */
 void goWest() {
   rotate(Status::WEST);
   goForward();
@@ -401,7 +423,7 @@ void goCol(const Command &goal) {
   }
 }
 
-/* commands robot to follow path according to schedule */
+/* commands robot to follow path according to the schedule */
 void executeSchedule() {
   starting_position = status; // save for later return
   unsigned long start_time = millis();
@@ -425,7 +447,7 @@ void executeSchedule() {
   }
 }
 
-/* commands robot to get back to starting position */
+/* commands robot to get back to the starting position */
 void returnHome() {
   Serial.println("returning back to starting position.");
   // create command for starting pos
@@ -434,6 +456,10 @@ void returnHome() {
   goCol(cmd);
   rotate(starting_position.orientation);
 }
+
+/**
+ * arduino entry points
+ */
 
 void setup() {
   // initialize serial and wait for port to open:
