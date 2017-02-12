@@ -1,9 +1,7 @@
 Dancing Robot
 =============
 
-video:
-
-
+video: https://youtu.be/vJE2oU5vaBA
 
 features
 --------
