@@ -272,13 +272,14 @@ void saveSchedule() {
 }
 
 void loadSchedule() {
-  if (EEPROM[0] != eeprom_magic) {
+  if (EEPROM[0] != eeprom_magic || buttonDown()) {
     // we don't have our schedule in EEPROM, fall back to precompiled schedule
     status = default_status;
     memset(schedule, 0, sizeof(schedule));
     memcpy(schedule, default_schedule, sizeof(default_schedule));
-    Serial.println(
-        "no schedule present in EEPROM, falling back to precompiler schedule.");
+    Serial.println("no schedule present in EEPROM (or manual override), "
+                   "falling back to precompiled schedule.");
+    blinkLed();
     return;
   }
   int address = 1;
@@ -348,6 +349,8 @@ void rotate(Status::Orientation orientation) {
   status.orientation = orientation;
 }
 
+void doSpecialAction() { rotate(Status::NORTH); }
+
 void goNorth() {
   rotate(Status::NORTH);
   goForward();
@@ -413,6 +416,10 @@ void executeSchedule() {
     }
     // wait until next command for amount specified in command
     while (cmd->time * 100 > millis() - start_time) {
+      if (buttonDown()) {
+        delay(500);
+        doSpecialAction();
+      }
       blinkLed();
     }
   }
