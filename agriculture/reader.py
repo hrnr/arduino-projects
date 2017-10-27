@@ -6,6 +6,7 @@
 import serial
 from datetime import datetime
 from ctypes import *
+import sys
 
 class Measurements(Structure):
 	_fields_ = [
@@ -17,6 +18,7 @@ class Measurements(Structure):
 
 def readData(data):
 	print(datetime.now().isoformat(), data.temperature, data.moisture, data.light, data.button, sep=',')
+	sys.stdout.flush()
 
 ser = serial.Serial(
 	port='/dev/ttyACM0',
