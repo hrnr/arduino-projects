@@ -20,7 +20,13 @@ struct Measurements {
   uint16_t button = 0;
 };
 
+struct Command {
+  uint16_t cmd;
+  uint16_t value;
+};
+
 Measurements sensors;
+Command cmd;
 
 /* blinks an arduino builtin led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
@@ -56,6 +62,30 @@ bool timerEvery(unsigned long prev_time, unsigned long duration) {
   return prev_time < time && time - prev_time > duration;
 }
 
+void startPump() { digitalWrite(relay_pin, HIGH); }
+
+void stopPump() { digitalWrite(relay_pin, LOW); }
+
+/* will run pump for specified time */
+void runPumpForTime(int time) {}
+
+void doCommand() {
+  switch (cmd.cmd) {
+  case 'R':
+    startPump();
+    break;
+  case 'S':
+    stopPump();
+    break;
+  case 'T':
+    runPumpForTime(cmd.value);
+    break;
+  default:
+    // ignore uknown commands
+    break;
+  }
+}
+
 void setup() {
   // setup all leds
   pinMode(LED_BUILTIN, OUTPUT);
@@ -66,6 +96,8 @@ void setup() {
   pinMode(button_pin, INPUT);
   // setup serial speed
   Serial.begin(115200);
+  // stop for safety on start
+  stopPump();
 }
 
 void loop() {
@@ -75,17 +107,14 @@ void loop() {
 
   visualiseMeasurements();
 
-  // digitalWrite(relay_pin, HIGH);
-
-  // shine full on button press
   if (sensors.button == HIGH) {
-    analogWrite(green_led_pin, 255);
+    runPumpForTime(1);
   }
 
-  /* serial echo */
-  if (Serial.available() >= MSG_SIZE) {
-    Serial.readBytes(msg_buffer, MSG_SIZE);
-    Serial.write(msg_buffer, MSG_SIZE);
+  /* receive commands */
+  if (Serial.available() >= (int)sizeof(cmd)) {
+    Serial.readBytes((char *)&cmd, sizeof(cmd));
+    doCommand();
   }
 
   /* send measurements over serial every 1s */
