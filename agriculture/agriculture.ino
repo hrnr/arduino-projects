@@ -12,6 +12,8 @@
 char msg_buffer[MSG_SIZE];
 unsigned long serial_timer = 0;
 unsigned long time = 0;
+unsigned long pump_start_time = 0;
+unsigned long pump_duration = 0;
 
 struct Measurements {
   uint16_t temperature = 0;
@@ -58,16 +60,28 @@ void sendMeasurements() {
   Serial.write((const uint8_t *)&sensors, sizeof(sensors));
 }
 
-bool timerEvery(unsigned long prev_time, unsigned long duration) {
-  return prev_time < time && time - prev_time > duration;
+/* returns true if duration from start_time passed. if duration is 0 this timer
+ * will never trigger. */
+bool timerDuration(unsigned long start_time, unsigned long duration) {
+  return duration && (time < start_time || time > duration + start_time);
 }
 
-void startPump() { digitalWrite(relay_pin, HIGH); }
+void startPump() {
+  digitalWrite(relay_pin, HIGH);
+  pump_duration = 0;
+}
 
-void stopPump() { digitalWrite(relay_pin, LOW); }
+void stopPump() {
+  digitalWrite(relay_pin, LOW);
+  pump_duration = 0;
+}
 
-/* will run pump for specified time */
-void runPumpForTime(int time) {}
+/* will run pump for specified time in s */
+void runPumpForTime(int time) {
+  startPump();
+  pump_start_time = millis();
+  pump_duration = time * 1000;
+}
 
 void doCommand() {
   switch (cmd.cmd) {
@@ -107,8 +121,13 @@ void loop() {
 
   visualiseMeasurements();
 
+  /* stop pump if  predefined time is over */
+  if (timerDuration(pump_start_time, pump_duration)) {
+    stopPump();
+  }
+
   if (sensors.button == HIGH) {
-    runPumpForTime(1);
+    runPumpForTime(2);
   }
 
   /* receive commands */
@@ -118,7 +137,7 @@ void loop() {
   }
 
   /* send measurements over serial every 1s */
-  if (timerEvery(serial_timer, 1000)) {
+  if (timerDuration(serial_timer, 1000)) {
     serial_timer = time;
     sendMeasurements();
   }
