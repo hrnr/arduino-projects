@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 
-# reads data from arduino, writes sensor reading to stdout as csv
+# reads data from arduino send as binary message, writes sensor readings to
+# stdout as csv
 
 import serial
 from datetime import datetime
+from ctypes import *
 
-def readData(bytesline):
-	line = bytesline.decode("utf-8")
-	thermistor, photoresistor = [x.strip() for x in line.split(' ')]
-	print(datetime.now().isoformat(), thermistor, 0, photoresistor, 0, sep=',')
+class Measurements(Structure):
+	_fields_ = [
+		("temperature", c_uint16),
+		("moisture", c_uint16),
+		("light", c_uint16),
+		("button", c_uint16),
+	]
+
+def readData(data):
+	print(datetime.now().isoformat(), data.temperature, data.moisture, data.light, data.button, sep=',')
 
 ser = serial.Serial(
 	port='/dev/ttyACM0',
@@ -16,7 +24,10 @@ ser = serial.Serial(
 
 try:
 	while True:
-		readData(ser.readline())
+		m = Measurements()
+		bytesarray = ser.read(sizeof(m))
+		m = Measurements.from_buffer_copy(bytesarray)
+		readData(m)
 except KeyboardInterrupt:
 	pass
 finally:

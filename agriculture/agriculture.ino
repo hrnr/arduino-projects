@@ -2,7 +2,9 @@
 #define button_pin 11
 #define green_led_pin 10
 #define blue_led_pin 9
+#define relay_pin 6
 // pin numbers for analog pins
+#define moisture_pin 2
 #define thermistor_pin 1
 #define photoresistor_pin 0
 
@@ -11,9 +13,14 @@ char msg_buffer[MSG_SIZE];
 unsigned long serial_timer = 0;
 unsigned long time = 0;
 
-char button_state = LOW;
-int thermistor_state = 0;
-int photoresistor_state = 0;
+struct Measurements {
+  uint16_t temperature = 0;
+  uint16_t moisture = 0;
+  uint16_t light = 0;
+  uint16_t button = 0;
+};
+
+Measurements sensors;
 
 /* blinks an arduino builtin led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
@@ -26,26 +33,23 @@ void blinkLed(int led_pin, unsigned char repeats = 1) {
 }
 
 void readSensors() {
-  button_state = digitalRead(button_pin);
-  thermistor_state = analogRead(thermistor_pin);
-  photoresistor_state = analogRead(photoresistor_pin);
+  sensors.temperature = analogRead(thermistor_pin);
+  sensors.moisture = analogRead(moisture_pin);
+  sensors.light = analogRead(photoresistor_pin);
+  sensors.button = digitalRead(button_pin);
 }
 
 /* visualise sensor measurements via leds */
 void visualiseMeasurements() {
   // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-  analogWrite(blue_led_pin, photoresistor_state / 4);
-  analogWrite(green_led_pin, thermistor_state / 4);
+  analogWrite(blue_led_pin, sensors.light / 4);
+  analogWrite(green_led_pin, sensors.temperature / 4);
 }
 
-void updateTime() {
-  time = millis();
-}
+void updateTime() { time = millis(); }
 
 void sendMeasurements() {
-  Serial.print(thermistor_state);
-  Serial.print(' ');
-  Serial.println(photoresistor_state);
+  Serial.write((const uint8_t *)&sensors, sizeof(sensors));
 }
 
 bool timerEvery(unsigned long prev_time, unsigned long duration) {
@@ -57,6 +61,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(green_led_pin, OUTPUT);
   pinMode(blue_led_pin, OUTPUT);
+  pinMode(relay_pin, OUTPUT);
 
   pinMode(button_pin, INPUT);
   // setup serial speed
@@ -70,8 +75,10 @@ void loop() {
 
   visualiseMeasurements();
 
+  // digitalWrite(relay_pin, HIGH);
+
   // shine full on button press
-  if (button_state == HIGH) {
+  if (sensors.button == HIGH) {
     analogWrite(green_led_pin, 255);
   }
 
