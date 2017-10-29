@@ -1,6 +1,6 @@
-#Smart agriculture with arduino
+# Smart agriculture with arduino
 
-##reader.py
+## reader.py
 
 Reads sensors data from serial and outputs csv on stdout. Format is:
 
