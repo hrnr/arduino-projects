@@ -26,3 +26,8 @@ CMD is one letter identifier of command and ARG is *mandatory* unsigned 16-bit i
 * `R 0` - starts pump
 * `S 0` - stops pump
 * `T <duration is seconds>` - runs pump for given duration
+
+###TODO
+
+[] water level warning
+[] automated mode

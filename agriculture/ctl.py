@@ -21,7 +21,7 @@ for line in sys.stdin:
     command = Command()
     command.cmd = ord(cmd)
     command.value = int(value)
-    ser.write(command)
+    ser.write(bytearray(command))
 
 ser.flush()
 ser.close()
