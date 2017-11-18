@@ -1,19 +1,19 @@
+// use backported EEPROM library from arduino 1.8.1 with new `get` and `put`
+// methods
+#include "EEPROM.h"
+
 // pin numbers for digital pins
 #define button_pin 11
 #define green_led_pin 10
-#define blue_led_pin 9
+#define heating_pin 9
 #define relay_pin 6
 // pin numbers for analog pins
 #define moisture_pin 2
 #define thermistor_pin 1
 #define photoresistor_pin 0
 
-#define MSG_SIZE 6
-char msg_buffer[MSG_SIZE];
-unsigned long serial_timer = 0;
-unsigned long time = 0;
-unsigned long pump_start_time = 0;
-unsigned long pump_duration = 0;
+// magic value to mark our content in eeprom
+#define EEPROM_MAGIC 0xce
 
 struct Measurements {
   uint16_t temperature = 0;
@@ -27,10 +27,69 @@ struct Command {
   uint16_t value;
 };
 
+struct Settings {
+  // threshold for engaging heating in auto mode
+  uint16_t temperature_level = 800;
+  // threshold for engaging pump in auto mode
+  uint16_t moisture_level = 1020;
+  // volume of attached water tank in dl
+  uint16_t water_capacity = 3;
+  // if auto mode is enabled
+  char auto_mode = 0;
+
+  /* load from EEPROM if possible load defaults otherwise */
+  void load() {
+    if (EEPROM[0] != EEPROM_MAGIC) {
+      *this = Settings();
+      return;
+    }
+    EEPROM.get(1, *this);
+  }
+
+  /* save to EEPROM */
+  void save() {
+    EEPROM[0] = EEPROM_MAGIC;
+    EEPROM.put(1, *this);
+  }
+
+  /**
+   * @brief Sets setting identified by its letter and saves all settings
+   *
+   * @param cmd letter identifying setting
+   * @param val value to set
+   */
+  void set(char cmd, uint16_t val) {
+    switch (cmd) {
+    case 'T':
+      temperature_level = val;
+      break;
+    case 'M':
+      moisture_level = val;
+      break;
+    case 'W':
+      water_capacity = val;
+      break;
+    case 'A':
+      auto_mode = val;
+      break;
+    default:
+      return;
+    }
+    save();
+  }
+};
+
 Measurements sensors;
 Command cmd;
+Settings settings;
 
-/* blinks an arduino builtin led */
+// timers
+unsigned long time = 0;
+unsigned long serial_timer = 0;
+unsigned long pump_start_time = 0;
+unsigned long pump_duration = 0;
+
+/* blinks an arduino built-in led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
   for (unsigned char i = 0; i < repeats; ++i) {
     digitalWrite(led_pin, HIGH);
@@ -45,13 +104,6 @@ void readSensors() {
   sensors.moisture = analogRead(moisture_pin);
   sensors.light = analogRead(photoresistor_pin);
   sensors.button = digitalRead(button_pin);
-}
-
-/* visualise sensor measurements via leds */
-void visualiseMeasurements() {
-  // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-  analogWrite(blue_led_pin, sensors.light / 4);
-  analogWrite(green_led_pin, sensors.temperature / 4);
 }
 
 void updateTime() { time = millis(); }
@@ -76,6 +128,14 @@ void stopPump() {
   pump_duration = 0;
 }
 
+void startStopPump(int start) {
+  if (start) {
+    startPump();
+  } else {
+    stopPump();
+  }
+}
+
 /* will run pump for specified time in s */
 void runPumpForTime(int time) {
   startPump();
@@ -83,19 +143,30 @@ void runPumpForTime(int time) {
   pump_duration = time * 1000;
 }
 
+void startStopHeating(int start) {
+  if (start) {
+    // start
+    digitalWrite(heating_pin, HIGH);
+  } else {
+    // stop
+    digitalWrite(heating_pin, LOW);
+  }
+}
+
 void doCommand() {
   switch (cmd.cmd) {
+  case 'P':
+    startStopPump(cmd.value);
+    break;
   case 'R':
-    startPump();
-    break;
-  case 'S':
-    stopPump();
-    break;
-  case 'T':
     runPumpForTime(cmd.value);
     break;
+  case 'H':
+    startStopHeating(cmd.value);
+    break;
   default:
-    // ignore uknown commands
+    // we try if it is settings command
+    settings.set(cmd.cmd, cmd.value);
     break;
   }
 }
@@ -104,7 +175,7 @@ void setup() {
   // setup all leds
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(green_led_pin, OUTPUT);
-  pinMode(blue_led_pin, OUTPUT);
+  pinMode(heating_pin, OUTPUT);
   pinMode(relay_pin, OUTPUT);
 
   pinMode(button_pin, INPUT);
@@ -118,8 +189,6 @@ void loop() {
   updateTime();
 
   readSensors();
-
-  visualiseMeasurements();
 
   /* stop pump if  predefined time is over */
   if (timerDuration(pump_start_time, pump_duration)) {

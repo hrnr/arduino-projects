@@ -1,5 +1,23 @@
 # Smart agriculture with arduino
 
+This arduino project implements an intelligent plant caring and monitoring system. Features include:
+
+* monitoring of temperature, soil moisture and received light
+* automatic watering and heating
+* water level warning, when water is low in reservoir
+
+## Automatic mode
+
+In this mode arduino will automatically try to keep temperature and soil moisture above given levels. This levels can be set through sending commands to arduino. See ###List of commands. This setting will be preserved in persistent memory through reboots.
+
+If you want to control heating and pump manually first disable automatic mode (by default disabled).
+
+
+## Water level warning
+
+Arduino automatically checks if water level in reservoir is low. This will be reported by red LED. You can reservoir capacity via appropriate command. Every time capacity is set the reservoir will be assumed full, so you can use this command to reset state after refilling.
+
+
 ## reader.py
 
 Reads sensors data from serial and outputs csv on stdout. Format is:
@@ -23,11 +41,22 @@ CMD is one letter identifier of command and ARG is *mandatory* unsigned 16-bit i
 
 ### List of commands
 
-* `R 0` - starts pump
-* `S 0` - stops pump
-* `T <duration is seconds>` - runs pump for given duration
+#### Actuators
 
-###TODO
+* `P [0-1]` - starts (1) or stops (0) the pump
+* `R <duration is seconds>` - runs the pump for given duration. You can use this to precisely control watering.
+* `H [0-1]` - starts (1) or stops (0) the heating
+
+#### Settings
+
+All settings will be preserved through reboots.
+
+* `T [0-1023]` - sets `temperature_level`. Threshold for engaging heating in auto mode
+* `M [0-1023]` - sets `moisture_level`. Threshold for engaging pump in auto mode
+* `W [0-1023]` - sets `water_capacity`. Volume of attached water tank in dl
+* `A [0-1]` - sets `auto_mode`. Enables or disables automatic mode.
+
+## TODO
 
 [] water level warning
 [] automated mode
