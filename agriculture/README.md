@@ -58,5 +58,5 @@ All settings will be preserved through reboots.
 
 ## TODO
 
-[] water level warning
-[] automated mode
+[x] water level warning
+[x] automated mode

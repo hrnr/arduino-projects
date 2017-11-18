@@ -68,6 +68,7 @@ struct Settings {
       break;
     case 'W':
       water_capacity = val;
+      pump_remaining_water = water_capacity;
       break;
     case 'A':
       auto_mode = val;
@@ -88,6 +89,9 @@ unsigned long time = 0;
 unsigned long serial_timer = 0;
 unsigned long pump_start_time = 0;
 unsigned long pump_duration = 0;
+
+// water in the reservoir
+uint16_t pump_remaining_water = 0;
 
 /* blinks an arduino built-in led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
@@ -121,11 +125,18 @@ bool timerDuration(unsigned long start_time, unsigned long duration) {
 void startPump() {
   digitalWrite(relay_pin, HIGH);
   pump_duration = 0;
+  pump_start_time = millis();
 }
 
 void stopPump() {
   digitalWrite(relay_pin, LOW);
   pump_duration = 0;
+
+  // calculate used water
+  unsigned long duration = time - pump_start_time;
+  uint16_t consumed_water = (duration / 1024) * 1 /* pumping ratio */;
+  // protect underflow
+  pump_remaining_water -= std::min(pump_remaining_water, consumed_water);
 }
 
 void startStopPump(bool start) {
@@ -139,7 +150,6 @@ void startStopPump(bool start) {
 /* will run pump for specified time in s */
 void runPumpForTime(int time) {
   startPump();
-  pump_start_time = millis();
   pump_duration = time * 1000;
 }
 
@@ -179,6 +189,16 @@ void autoMode() {
   startStopHeating(sensors.temperature < settings.temperature_level);
 }
 
+void warnLowWaterLevel() {
+  // signal with LED when water level is low
+  // TODO change this led to something else to be more visible.
+  if (pump_remaining_water < settings.water_capacity / 8) {
+    digitalWrite(LED_BUILTIN, HIGH);
+  } else {
+    digitalWrite(LED_BUILTIN, LOW);
+  }
+}
+
 void setup() {
   // setup all leds
   pinMode(LED_BUILTIN, OUTPUT);
@@ -201,6 +221,8 @@ void loop() {
   if (settings.auto_mode) {
     autoMode();
   }
+
+  warnLowWaterLevel();
 
   /* stop pump if  predefined time is over */
   if (timerDuration(pump_start_time, pump_duration)) {
