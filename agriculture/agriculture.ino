@@ -128,7 +128,7 @@ void stopPump() {
   pump_duration = 0;
 }
 
-void startStopPump(int start) {
+void startStopPump(bool start) {
   if (start) {
     startPump();
   } else {
@@ -143,7 +143,7 @@ void runPumpForTime(int time) {
   pump_duration = time * 1000;
 }
 
-void startStopHeating(int start) {
+void startStopHeating(bool start) {
   if (start) {
     // start
     digitalWrite(heating_pin, HIGH);
@@ -171,6 +171,14 @@ void doCommand() {
   }
 }
 
+/* automates watering and heating. run actuator if sensor measurement is below
+ * threshold. stop otherwise.*/
+void autoMode() {
+  // higher reading from moisture sensor means less moisture
+  startStopPump(sensors.moisture > settings.moisture_level);
+  startStopHeating(sensors.temperature < settings.temperature_level);
+}
+
 void setup() {
   // setup all leds
   pinMode(LED_BUILTIN, OUTPUT);
@@ -189,6 +197,10 @@ void loop() {
   updateTime();
 
   readSensors();
+
+  if (settings.auto_mode) {
+    autoMode();
+  }
 
   /* stop pump if  predefined time is over */
   if (timerDuration(pump_start_time, pump_duration)) {
