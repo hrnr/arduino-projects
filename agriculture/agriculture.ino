@@ -52,32 +52,30 @@ struct Settings {
     EEPROM.put(1, *this);
   }
 
-  /**
-   * @brief Sets setting identified by its letter and saves all settings
-   *
-   * @param cmd letter identifying setting
-   * @param val value to set
-   */
-  void set(char cmd, uint16_t val) {
-    switch (cmd) {
-    case 'T':
-      temperature_level = val;
-      break;
-    case 'M':
-      moisture_level = val;
-      break;
-    case 'W':
-      water_capacity = val;
-      break;
-    case 'A':
-      auto_mode = val;
-      break;
-    default:
-      return;
-    }
+  /* setters that also save the settings */
+
+  void setAutoMode(bool val) {
+    auto_mode = val;
+    save();
+  }
+
+  void setWaterCapacity(uint16_t val) {
+    water_capacity = val;
+    save();
+  }
+
+  void setMoistureLevel(uint16_t val) {
+    moisture_level = val;
+    save();
+  }
+
+  void setTemperatureLevel(uint16_t val) {
+    temperature_level = val;
     save();
   }
 };
+
+void stopAutoMode();
 
 Measurements sensors;
 Command cmd;
@@ -88,6 +86,8 @@ unsigned long time = 0;
 unsigned long serial_timer = 0;
 unsigned long pump_start_time = 0;
 unsigned long pump_duration = 0;
+bool pump_running = false;
+bool heating_on = false;
 
 // water in the reservoir
 uint16_t pump_remaining_water = 0;
@@ -122,14 +122,28 @@ bool timerDuration(unsigned long start_time, unsigned long duration) {
 }
 
 void startPump() {
-  digitalWrite(relay_pin, HIGH);
+  // reset timer
   pump_duration = 0;
   pump_start_time = millis();
+  if (pump_running) {
+    // do not set pin if pump is already running
+    // prevents cycles in relay because of drop-off when setting the pin
+    return;
+  }
+
+  digitalWrite(relay_pin, HIGH);
+  pump_running = true;
 }
 
 void stopPump() {
+  if (!pump_running) {
+    // do not set the pin when not needed
+    return;
+  }
+
   digitalWrite(relay_pin, LOW);
   pump_duration = 0;
+  pump_running = false;
 
   // calculate used water
   unsigned long duration = time - pump_start_time;
@@ -152,13 +166,21 @@ void runPumpForTime(int time) {
   pump_duration = time * 1000;
 }
 
+void startHeating() {
+  digitalWrite(heating_pin, HIGH);
+  heating_on = true;
+}
+
+void stopHeating() {
+  digitalWrite(heating_pin, LOW);
+  heating_on = false;
+}
+
 void startStopHeating(bool start) {
   if (start) {
-    // start
-    digitalWrite(heating_pin, HIGH);
+    startHeating();
   } else {
-    // stop
-    digitalWrite(heating_pin, LOW);
+    stopHeating();
   }
 }
 
@@ -176,18 +198,29 @@ void doCommand() {
   case 'W':
     // refill water tank, reset capacity
     pump_remaining_water = cmd.value;
-  /*fallthrough */
-  default:
-    // we try if it is settings command
-    settings.set(cmd.cmd, cmd.value);
+    settings.setWaterCapacity(cmd.value);
     break;
+  case 'A':
+    settings.setAutoMode(cmd.value);
+    // we can always disable, it will be re-enabled automatically if needed
+    stopAutoMode();
+    break;
+  case 'T':
+    settings.setTemperatureLevel(cmd.value);
+    break;
+  case 'M':
+    settings.setMoistureLevel(cmd.value);
+    break;
+  default:
+    // unknown command
+    return;
   }
 }
 
 /* automates watering and heating. run actuator if sensor measurement is below
  * threshold. stop otherwise.*/
 void autoMode() {
-   if (!settings.auto_mode) {
+  if (!settings.auto_mode) {
     digitalWrite(green_led_pin, LOW);
     return;
   }
@@ -198,6 +231,13 @@ void autoMode() {
   // higher reading from moisture sensor means less moisture
   startStopPump(sensors.moisture > settings.moisture_level);
   startStopHeating(sensors.temperature < settings.temperature_level);
+}
+
+/* handles disabling auto mode safely */
+void stopAutoMode() {
+  // safety measure, if we have turned heating and pump on
+  stopPump();
+  stopHeating();
 }
 
 void warnLowWaterLevel() {
