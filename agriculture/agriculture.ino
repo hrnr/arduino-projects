@@ -250,7 +250,7 @@ void stopAutoMode() {
 void warnLowWaterLevel() {
   // signal with LED when water level is low
   // TODO change this led to something else to be more visible.
-  if (pump_remaining_water < settings.water_capacity / 8) {
+  if (pump_remaining_water <= settings.water_capacity / 8) {
     digitalWrite(LED_BUILTIN, HIGH);
   } else {
     digitalWrite(LED_BUILTIN, LOW);
