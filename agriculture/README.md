@@ -22,11 +22,13 @@ Remaining water level is stored in EEPROM memory, which means it will be preserv
 
 ## reader.py
 
-Reads sensors data from serial and outputs csv on stdout. Format is:
+Reads sensors and settings data from serial and outputs csv on stdout. Format is:
 
 ```
-datetime(ISO 8601),thermistor(temperature),moisture,photoresitor(light),button
+datetime(ISO 8601),thermistor(temperature),moisture,photoresitor(light),button,pump_on,heating_on,temperature_level,moisture_level,water_capacity,remaining_water,auto_mode
 ```
+
+This data includes both current readings from sensors (`thermistor(temperature),moisture,photoresitor(light)`), state of attached devices (`button,pump_on,heating_on`) and current settings and data that are preserved through reboots (`temperature_level,moisture_level,water_capacity,remaining_water,auto_mode`).
 
 ## ctl.py
 
@@ -57,7 +59,3 @@ All settings will be preserved through reboots.
 * `M [0-1023]` - sets `moisture_level`. Threshold for engaging pump in auto mode
 * `W [0-1023]` - sets `water_capacity`. Volume of attached water tank in dl
 * `A [0-1]` - sets `auto_mode`. Enables or disables automatic mode.
-
-## TODO
-
-* extend csv

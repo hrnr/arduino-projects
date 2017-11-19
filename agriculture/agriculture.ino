@@ -20,8 +20,10 @@ struct Measurements {
   uint16_t temperature = 0;
   uint16_t moisture = 0;
   uint16_t light = 0;
-  uint16_t button = 0;
-};
+  uint8_t button = 0;
+  uint8_t pump_on = false;
+  uint8_t heating_on = false;
+} __attribute__((packed));
 
 struct Command {
   uint16_t cmd;
@@ -38,7 +40,7 @@ struct Settings {
   // water in the reservoir
   uint16_t remaining_water = water_capacity;
   // if auto mode is enabled
-  char auto_mode = 0;
+  uint8_t auto_mode = 0;
 
   /* load from EEPROM if possible load defaults otherwise */
   void load() {
@@ -81,7 +83,7 @@ struct Settings {
     remaining_water = val;
     save();
   }
-};
+} __attribute__((packed));
 
 void stopAutoMode();
 
@@ -94,8 +96,6 @@ unsigned long time = 0;
 unsigned long serial_timer = 0;
 unsigned long pump_start_time = 0;
 unsigned long pump_duration = 0;
-bool pump_running = false;
-bool heating_on = false;
 
 /* blinks an arduino built-in led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
@@ -118,6 +118,7 @@ void updateTime() { time = millis(); }
 
 void sendMeasurements() {
   Serial.write((const uint8_t *)&sensors, sizeof(sensors));
+  Serial.write((const uint8_t *)&settings, sizeof(settings));
 }
 
 /* returns true if duration from start_time passed. if duration is 0 this timer
@@ -128,7 +129,7 @@ bool timerDuration(unsigned long start_time, unsigned long duration) {
 
 void startPump() {
   digitalWrite(relay_pin, HIGH);
-  pump_running = true;
+  sensors.pump_on = true;
 
   // reset timer
   pump_duration = 0;
@@ -138,13 +139,14 @@ void startPump() {
 void stopPump() {
   digitalWrite(relay_pin, LOW);
   pump_duration = 0;
-  pump_running = false;
+  sensors.pump_on = false;
 
   // calculate used water
   unsigned long duration = time - pump_start_time;
   uint16_t consumed_water = (duration / 1024) * 1 /* pumping ratio */;
   // protect underflow
-  uint16_t remaining_water = settings.remaining_water - min(settings.remaining_water, consumed_water);
+  uint16_t remaining_water =
+      settings.remaining_water - min(settings.remaining_water, consumed_water);
   // save to EEPROM
   settings.setRemainingWater(remaining_water);
 }
@@ -165,12 +167,12 @@ void runPumpForTime(int time) {
 
 void startHeating() {
   digitalWrite(heating_pin, HIGH);
-  heating_on = true;
+  sensors.heating_on = true;
 }
 
 void stopHeating() {
   digitalWrite(heating_pin, LOW);
-  heating_on = false;
+  sensors.heating_on = false;
 }
 
 void startStopHeating(bool start) {
@@ -233,13 +235,13 @@ void autoMode() {
    * devices */
 
   // higher reading from moisture sensor means less moisture
-  if (pump_running) {
+  if (sensors.pump_on) {
     startStopPump(sensors.moisture + sensors_tresh > settings.moisture_level);
   } else {
     startStopPump(sensors.moisture > settings.moisture_level);
   }
 
-  if (heating_on) {
+  if (sensors.heating_on) {
     startStopHeating(sensors.temperature - sensors_tresh <
                      settings.temperature_level);
   } else {
@@ -274,7 +276,7 @@ void setup() {
   // setup serial speed
   Serial.begin(115200);
   // stop for safety on start
-  stopPump();
+  stopAutoMode();
 
   // read settings from EEPROM
   settings.load();
