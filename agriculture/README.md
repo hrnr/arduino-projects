@@ -15,7 +15,9 @@ If you want to control heating and pump manually first disable automatic mode (b
 
 ## Water level warning
 
-Arduino automatically checks if water level in reservoir is low. This will be reported by red LED. You can reservoir capacity via appropriate command. Every time capacity is set the reservoir will be assumed full, so you can use this command to reset state after refilling.
+Arduino automatically checks if water level in reservoir is low. This will be reported by red LED. You can reservoir capacity via appropriate command. Every time capacity is set the reservoir will be assumed full, so you can use `W` command to reset state after refilling.
+
+Remaining water level is stored in EEPROM memory, which means it will be preserved during reboots.
 
 
 ## reader.py
@@ -58,5 +60,4 @@ All settings will be preserved through reboots.
 
 ## TODO
 
-[x] water level warning
-[x] automated mode
+* extend csv

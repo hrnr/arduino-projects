@@ -7,6 +7,7 @@
 #define green_led_pin 10
 #define heating_pin 9
 #define relay_pin 6
+#define red_led_pin 5
 // pin numbers for analog pins
 #define moisture_pin 2
 #define thermistor_pin 1
@@ -34,6 +35,8 @@ struct Settings {
   uint16_t moisture_level = 1000;
   // volume of attached water tank in dl
   uint16_t water_capacity = 3;
+  // water in the reservoir
+  uint16_t remaining_water = water_capacity;
   // if auto mode is enabled
   char auto_mode = 0;
 
@@ -73,6 +76,11 @@ struct Settings {
     temperature_level = val;
     save();
   }
+
+  void setRemainingWater(uint16_t val) {
+    remaining_water = val;
+    save();
+  }
 };
 
 void stopAutoMode();
@@ -88,9 +96,6 @@ unsigned long pump_start_time = 0;
 unsigned long pump_duration = 0;
 bool pump_running = false;
 bool heating_on = false;
-
-// water in the reservoir
-uint16_t pump_remaining_water = 0;
 
 /* blinks an arduino built-in led */
 void blinkLed(int led_pin, unsigned char repeats = 1) {
@@ -139,7 +144,9 @@ void stopPump() {
   unsigned long duration = time - pump_start_time;
   uint16_t consumed_water = (duration / 1024) * 1 /* pumping ratio */;
   // protect underflow
-  pump_remaining_water -= min(pump_remaining_water, consumed_water);
+  uint16_t remaining_water = settings.remaining_water - min(settings.remaining_water, consumed_water);
+  // save to EEPROM
+  settings.setRemainingWater(remaining_water);
 }
 
 void startStopPump(bool start) {
@@ -187,8 +194,8 @@ void doCommand() {
     break;
   case 'W':
     // refill water tank, reset capacity
-    pump_remaining_water = cmd.value;
     settings.setWaterCapacity(cmd.value);
+    settings.setRemainingWater(cmd.value);
     break;
   case 'A':
     settings.setAutoMode(cmd.value);
@@ -249,17 +256,16 @@ void stopAutoMode() {
 
 void warnLowWaterLevel() {
   // signal with LED when water level is low
-  // TODO change this led to something else to be more visible.
-  if (pump_remaining_water <= settings.water_capacity / 8) {
-    digitalWrite(LED_BUILTIN, HIGH);
+  if (settings.remaining_water <= settings.water_capacity / 8) {
+    digitalWrite(red_led_pin, HIGH);
   } else {
-    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(red_led_pin, LOW);
   }
 }
 
 void setup() {
   // setup all leds
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(red_led_pin, OUTPUT);
   pinMode(green_led_pin, OUTPUT);
   pinMode(heating_pin, OUTPUT);
   pinMode(relay_pin, OUTPUT);
@@ -269,6 +275,9 @@ void setup() {
   Serial.begin(115200);
   // stop for safety on start
   stopPump();
+
+  // read settings from EEPROM
+  settings.load();
 }
 
 void loop() {
