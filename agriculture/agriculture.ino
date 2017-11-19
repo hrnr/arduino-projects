@@ -31,7 +31,7 @@ struct Settings {
   // threshold for engaging heating in auto mode
   uint16_t temperature_level = 800;
   // threshold for engaging pump in auto mode
-  uint16_t moisture_level = 1020;
+  uint16_t moisture_level = 1000;
   // volume of attached water tank in dl
   uint16_t water_capacity = 3;
   // if auto mode is enabled
@@ -122,25 +122,15 @@ bool timerDuration(unsigned long start_time, unsigned long duration) {
 }
 
 void startPump() {
+  digitalWrite(relay_pin, HIGH);
+  pump_running = true;
+
   // reset timer
   pump_duration = 0;
   pump_start_time = millis();
-  if (pump_running) {
-    // do not set pin if pump is already running
-    // prevents cycles in relay because of drop-off when setting the pin
-    return;
-  }
-
-  digitalWrite(relay_pin, HIGH);
-  pump_running = true;
 }
 
 void stopPump() {
-  if (!pump_running) {
-    // do not set the pin when not needed
-    return;
-  }
-
   digitalWrite(relay_pin, LOW);
   pump_duration = 0;
   pump_running = false;
@@ -228,9 +218,26 @@ void autoMode() {
   // signal we are in auto mode
   digitalWrite(green_led_pin, HIGH);
 
+  // used to prevent cycling near threshold level. This value should be big
+  // enough to deal with noise in measurements
+  constexpr int sensors_tresh = 25;
+
+  /* carefully engage pump and heating to prevent cycling, which can harm
+   * devices */
+
   // higher reading from moisture sensor means less moisture
-  startStopPump(sensors.moisture > settings.moisture_level);
-  startStopHeating(sensors.temperature < settings.temperature_level);
+  if (pump_running) {
+    startStopPump(sensors.moisture + sensors_tresh > settings.moisture_level);
+  } else {
+    startStopPump(sensors.moisture > settings.moisture_level);
+  }
+
+  if (heating_on) {
+    startStopHeating(sensors.temperature - sensors_tresh <
+                     settings.temperature_level);
+  } else {
+    startStopHeating(sensors.temperature < settings.temperature_level);
+  }
 }
 
 /* handles disabling auto mode safely */
