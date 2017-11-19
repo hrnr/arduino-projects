@@ -68,7 +68,6 @@ struct Settings {
       break;
     case 'W':
       water_capacity = val;
-      pump_remaining_water = water_capacity;
       break;
     case 'A':
       auto_mode = val;
@@ -136,7 +135,7 @@ void stopPump() {
   unsigned long duration = time - pump_start_time;
   uint16_t consumed_water = (duration / 1024) * 1 /* pumping ratio */;
   // protect underflow
-  pump_remaining_water -= std::min(pump_remaining_water, consumed_water);
+  pump_remaining_water -= min(pump_remaining_water, consumed_water);
 }
 
 void startStopPump(bool start) {
@@ -174,6 +173,10 @@ void doCommand() {
   case 'H':
     startStopHeating(cmd.value);
     break;
+  case 'W':
+    // refill water tank, reset capacity
+    pump_remaining_water = cmd.value;
+  /*fallthrough */
   default:
     // we try if it is settings command
     settings.set(cmd.cmd, cmd.value);
@@ -184,6 +187,14 @@ void doCommand() {
 /* automates watering and heating. run actuator if sensor measurement is below
  * threshold. stop otherwise.*/
 void autoMode() {
+   if (!settings.auto_mode) {
+    digitalWrite(green_led_pin, LOW);
+    return;
+  }
+
+  // signal we are in auto mode
+  digitalWrite(green_led_pin, HIGH);
+
   // higher reading from moisture sensor means less moisture
   startStopPump(sensors.moisture > settings.moisture_level);
   startStopHeating(sensors.temperature < settings.temperature_level);
@@ -218,9 +229,8 @@ void loop() {
 
   readSensors();
 
-  if (settings.auto_mode) {
-    autoMode();
-  }
+  // controls pump and heating if running in auto mode
+  autoMode();
 
   warnLowWaterLevel();
 
