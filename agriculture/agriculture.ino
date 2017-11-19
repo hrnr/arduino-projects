@@ -86,7 +86,6 @@ struct Settings {
 } __attribute__((packed));
 
 void stopAutoMode();
-
 Measurements sensors;
 Command cmd;
 Settings settings;
@@ -128,6 +127,10 @@ bool timerDuration(unsigned long start_time, unsigned long duration) {
 }
 
 void startPump() {
+  if (sensors.pump_on) {
+    return;
+  }
+
   digitalWrite(relay_pin, HIGH);
   sensors.pump_on = true;
 
@@ -137,9 +140,13 @@ void startPump() {
 }
 
 void stopPump() {
+  if (!sensors.pump_on) {
+    return;
+  }
+
   digitalWrite(relay_pin, LOW);
-  pump_duration = 0;
   sensors.pump_on = false;
+  pump_duration = 0;
 
   // calculate used water
   unsigned long duration = time - pump_start_time;
@@ -201,8 +208,10 @@ void doCommand() {
     break;
   case 'A':
     settings.setAutoMode(cmd.value);
-    // we can always disable, it will be re-enabled automatically if needed
-    stopAutoMode();
+    // stop auto mode when turning off
+    if (!settings.auto_mode) {
+      stopAutoMode();
+    }
     break;
   case 'T':
     settings.setTemperatureLevel(cmd.value);
