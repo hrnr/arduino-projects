@@ -8,7 +8,7 @@ This arduino project implements an intelligent plant caring and monitoring syste
 
 ## Automatic mode
 
-In this mode arduino will automatically try to keep temperature and soil moisture above given levels. This levels can be set through sending commands to arduino. See ###List of commands. This setting will be preserved in persistent memory through reboots.
+In this mode arduino will automatically try to keep temperature and soil moisture above given levels. This levels can be set through sending commands to arduino. See [list of commands](#list-of-commands) for details. This setting will be preserved in persistent memory through reboots.
 
 If you want to control heating and pump manually first disable automatic mode (by default disabled).
 
