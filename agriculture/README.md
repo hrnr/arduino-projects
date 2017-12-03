@@ -95,3 +95,13 @@ All settings will be preserved through reboots.
 * `M [0-1023]` - sets `moisture_level`. Threshold for engaging pump in auto mode
 * `W [0-1023]` - sets `water_capacity`. Volume of attached water tank in dl
 * `A [0-1]` - sets `auto_mode`. Enables or disables automatic mode.
+
+## Building
+
+You should be able to build `agriculture.ino` with recent Arduino IDE. Furthermore there is a makefile for [Arduino-Makefile](https://github.com/sudar/Arduino-Makefile). Use
+
+```
+make upload
+```
+
+to build and upload to Arduino UNO.
